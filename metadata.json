@@ -1,0 +1,5 @@
+{
+  "name": "OpenEnv Interface Definition",
+  "description": "A Python-based interface definition for OpenEnv-style environments using Pydantic for data modeling.",
+  "requestFramePermissions": []
+}
