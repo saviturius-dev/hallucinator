@@ -4,27 +4,33 @@ from open_env import DataOpsEnv, Action, Observation, Reward, SimpleAgent
 from pydantic import BaseModel
 from typing import Dict, Any, List
 
-# Configure logging
+# Configure application-wide logging so endpoint behavior is visible in local runs.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the FastAPI application
+# FastAPI app metadata is shown in OpenAPI docs (`/docs`).
 app = FastAPI(title="DataOps Environment API")
 
-# Initialize a global environment instance
-# Defaulting to "easy" difficulty as a starting point
+# Keep a single mutable environment in memory for the interactive API lifecycle.
+# Default to easy so first-time users can hit `/state` without a reset call.
 env = DataOpsEnv(difficulty="easy")
 
 class StepResponse(BaseModel):
+    # Full observation returned after applying an action.
     observation: Observation
+    # Reward payload includes score, delta, done flag, and score breakdown.
     reward: Reward
 
 class TaskInfo(BaseModel):
+    # Stable task identifier used by clients.
     id: str
+    # Difficulty level used by `/reset`.
     difficulty: str
 
 class TasksResponse(BaseModel):
+    # Enumerated task list for client selection.
     tasks: List[TaskInfo]
+    # JSON schema for valid `Action` objects.
     action_schema: Dict[str, Any]
 
 @app.get("/health")
@@ -39,6 +45,7 @@ async def get_tasks():
     """
     Returns the available tasks and the action schema.
     """
+    # Keep tasks explicit so they stay in sync with openenv.yaml defaults.
     tasks = [
         {"id": "easy", "difficulty": "easy"},
         {"id": "medium", "difficulty": "medium"},
@@ -57,6 +64,7 @@ async def reset_env(difficulty: str = "easy"):
     global env
     logger.info(f"Resetting environment with difficulty: {difficulty}")
     try:
+        # Replace the global instance so each reset starts from a pristine state.
         env = DataOpsEnv(difficulty=difficulty)
         return env.reset()
     except Exception as e:
@@ -70,6 +78,7 @@ async def step_env(action: Action):
     """
     logger.info(f"Stepping environment with action: {action.action_type}")
     try:
+        # Delegate full validation/scoring behavior to the environment implementation.
         obs, reward = env.step(action)
         return StepResponse(observation=obs, reward=reward)
     except Exception as e:
@@ -95,6 +104,7 @@ async def grade_env():
     """
     logger.info("Grading environment")
     try:
+        # Compute granular metrics first, then expose the normalized total score.
         score_breakdown = env.compute_score()
         score = score_breakdown.get("total", 0.0)
         # Ensure value is between 0 and 1
@@ -116,12 +126,11 @@ async def run_baseline():
     for diff in difficulties:
         logger.info(f"Running baseline for difficulty: {diff}")
         try:
-            # Create a fresh environment for each task
+            # Isolate each difficulty so actions do not leak across runs.
             task_env = DataOpsEnv(difficulty=diff)
-            # Initialize agent with the task environment
-            # SimpleAgent uses environment variables for API keys
+            # Agent consumes observations and emits candidate actions.
             agent = SimpleAgent(env=task_env)
-            # Run the agent (max_steps=5 for speed in baseline)
+            # Keep baseline short for quick sanity checks in CI/local runs.
             agent.run(max_steps=5, k=1) 
             
             score_breakdown = task_env.compute_score()

@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "http://localhost:3000"
 MAX_STEPS = 10
+# Retries make local startup races less brittle.
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 
