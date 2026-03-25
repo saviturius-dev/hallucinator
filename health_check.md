@@ -7,7 +7,7 @@ Verify the API is up and responding to basic requests.
 
 **Check:** `GET /health` returns `{"status": "ok"}`
 ```bash
-curl -X GET http://localhost:7860/health
+curl -X GET http://localhost:3000/health
 ```
 
 ## 2. Task Configuration & Schema
@@ -15,7 +15,7 @@ Ensure the environment can provide task details and the expected action format.
 
 **Check:** `GET /tasks` returns a list of tasks and a valid JSON schema for actions.
 ```bash
-curl -X GET http://localhost:7860/tasks
+curl -X GET http://localhost:3000/tasks
 ```
 
 ## 3. Environment Lifecycle
@@ -24,15 +24,15 @@ Verify that the environment can be reset and advanced.
 **Check:** `POST /reset` initializes the environment.
 ```bash
 # Reset to easy difficulty (default)
-curl -X POST "http://localhost:7860/reset?difficulty=easy"
+curl -X POST "http://localhost:3000/reset?difficulty=easy"
 
 # Reset to hard difficulty
-curl -X POST "http://localhost:7860/reset?difficulty=hard"
+curl -X POST "http://localhost:3000/reset?difficulty=hard"
 ```
 
 **Check:** `POST /step` applies an action and returns an observation.
 ```bash
-curl -X POST http://localhost:7860/step \
+curl -X POST http://localhost:3000/step \
      -H "Content-Type: application/json" \
      -d '{
        "action_type": "clean_data",
@@ -45,13 +45,13 @@ Verify the scoring and agent execution logic.
 
 **Check:** `POST /grader` returns a score between 0 and 1.
 ```bash
-curl -X POST http://localhost:7860/grader
+curl -X POST http://localhost:3000/grader
 ```
 
 **Check:** `POST /baseline` executes the internal agent for all tasks.
 *Note: This may take a few seconds as it calls the LLM.*
 ```bash
-curl -X POST http://localhost:7860/baseline
+curl -X POST http://localhost:3000/baseline
 ```
 
 ---

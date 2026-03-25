@@ -14,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-BASE_URL = "http://localhost:7860"
+BASE_URL = "http://localhost:3000"
 API_KEY = os.getenv("OPENAI_API_KEY")
 MAX_STEPS = 10
 MAX_RETRIES = 3
