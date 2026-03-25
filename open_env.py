@@ -4,7 +4,6 @@ import random
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Tuple, Optional
 from pydantic import BaseModel, Field
-from openai import OpenAI
 
 class Observation(BaseModel):
     """
@@ -583,82 +582,39 @@ class DataOpsEnv(OpenEnv):
 
 class SimpleAgent:
     """
-    An agent that uses an LLM to propose actions for an OpenEnv environment.
+    A deterministic agent that proposes actions from observed issues and constraints.
     """
-    def __init__(self, env: OpenEnv, api_key: Optional[str] = None, model: str = "gpt-4o"):
+    def __init__(self, env: OpenEnv, api_key: Optional[str] = None, model: str = "default"):
         self.env = env
         self.model = model
-        
-        # Determine API configuration
-        api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")
-        
-        # If using Gemini key, use Google's OpenAI-compatible endpoint
-        if os.getenv("GEMINI_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-            default_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-        else:
-            default_url = "https://api.openai.com/v1"
-            
-        base_url = os.getenv("OPENAI_BASE_URL", default_url)
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.api_key = api_key
 
     def propose_actions(self, observation: Observation) -> List[Action]:
         """
-        Queries the LLM to propose a list of valid candidate actions.
+        Proposes a list of valid candidate actions from the current observation.
         """
-        prompt = f"""
-        You are a data engineering agent. Analyze the following environment observation and propose 3 to 5 candidate actions.
-        
-        Observation:
-        {observation.model_dump_json(indent=2)}
-        
-        Constraints:
-        1. Action types MUST be one of: "fill_missing", "drop_column", "normalize_format", "deduplicate", "enforce_constraint", "schedule_task", "merge_dataset".
-        2. Parameters must be minimal, relevant, and valid for the specific action type.
-        3. Output MUST be a valid JSON object with an "actions" key containing a list of action objects.
-        
-        Example Output:
-        {{
-            "actions": [
-                {{"action_type": "normalize_format", "parameters": {{"column": "timestamp", "format": "ISO8601"}}}},
-                {{"action_type": "fill_missing", "parameters": {{"column": "category", "value": "unknown"}}}}
-            ]
-        }}
-        """
+        action_templates = [
+            Action(action_type="normalize_format", parameters={"column": "timestamp", "format": "ISO8601"}),
+            Action(action_type="fill_missing", parameters={"column": "region", "value": "unknown"}),
+            Action(action_type="deduplicate", parameters={"subset": ["id"]}),
+            Action(action_type="enforce_constraint", parameters={"constraint": "non_negative_sales"}),
+            Action(action_type="schedule_task", parameters={"task": "daily_quality_check"}),
+            Action(action_type="merge_dataset", parameters={"source": "master_records", "on": "id"}),
+            Action(action_type="drop_column", parameters={"column": "temp_debug"}),
+        ]
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,  # Ensure determinism
-                seed=42,
-                response_format={"type": "json_object"}
-            )
-            
-            raw_content = response.choices[0].message.content or ""
-            
-            # Safe JSON parsing
-            try:
-                data = json.loads(raw_content)
-                # Handle potential wrapper objects (e.g. {"actions": [...]})
-                actions_list = data if isinstance(data, list) else data.get("actions", [])
-            except json.JSONDecodeError:
-                print("Failed to parse LLM output as JSON.")
-                return []
+        prioritized: List[Action] = []
+        context = " ".join(observation.issues_detected + observation.constraints).lower()
 
-            # Validate and discard invalid actions
-            valid_actions = []
-            for item in actions_list:
-                try:
-                    valid_actions.append(Action(**item))
-                except Exception:
-                    # Discard actions that don't match the Pydantic schema
-                    continue
-            
-            return valid_actions
+        for action in action_templates:
+            payload = f"{action.action_type} {json.dumps(action.parameters)}".lower()
+            if any(token in payload for token in context.split()):
+                prioritized.append(action)
 
-        except Exception as e:
-            print(f"LLM proposal error: {e}")
-            return []
+        if not prioritized:
+            prioritized = action_templates[:4]
+
+        return prioritized[:5]
 
     def heuristic_score(self, observation: Observation, action: Action) -> float:
         """
