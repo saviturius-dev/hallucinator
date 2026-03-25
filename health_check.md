@@ -49,7 +49,7 @@ curl -X POST http://localhost:3000/grader
 ```
 
 **Check:** `POST /baseline` executes the internal agent for all tasks.
-*Note: This may take a few seconds as it calls the LLM.*
+*Note: This may take a few seconds while the baseline policy iterates through each task.*
 ```bash
 curl -X POST http://localhost:3000/baseline
 ```
