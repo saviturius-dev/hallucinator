@@ -1,0 +1,19 @@
+name: data-ops-env
+description: RL environment for data cleaning and pipeline optimization
+entrypoint: app:app
+
+tasks:
+  - id: easy
+    difficulty: easy
+  - id: medium
+    difficulty: medium
+  - id: hard
+    difficulty: hard
+
+api:
+  reset: /reset
+  step: /step
+  state: /state
+  grader: /grader
+  baseline: /baseline
+  tasks: /tasks
